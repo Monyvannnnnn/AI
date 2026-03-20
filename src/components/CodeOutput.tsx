@@ -241,7 +241,7 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
   const previewDocument = buildStandaloneHtml(generatedCode);
   const previewFrameClass =
     deviceMode === "mobile"
-      ? "w-full max-w-[375px] min-w-[320px] border-x border-black/5 shadow-2xl"
+      ? "w-full max-w-[375px] max-sm:max-w-[calc(100vw-24px)] border-x border-black/5 shadow-2xl"
       : "w-full max-w-[1280px] min-w-[320px] border border-black/5 shadow-[0_24px_80px_rgba(15,23,42,0.12)]";
 
   const handleCopy = async () => {
@@ -276,12 +276,12 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
     <div
       ref={containerRef}
       className={cn(
-        "overflow-hidden border border-white/10 bg-card/70 shadow-2xl backdrop-blur-xl transition-all duration-500",
-        isFullscreen ? "h-screen rounded-none" : "rounded-[28px]"
+        "w-full overflow-hidden border border-white/10 bg-card/70 shadow-2xl backdrop-blur-xl transition-all duration-500",
+        isFullscreen ? "h-screen rounded-none" : "rounded-[20px] sm:rounded-[28px]"
       )}
     >
-      <div className="flex flex-col gap-3 border-b border-white/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-3 border-b border-white/10 px-3 py-3 sm:px-4 sm:py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <div>
             <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Workspace</div>
             <div className="mt-0.5 text-xs font-semibold text-foreground">Interactive Preview</div>
@@ -313,12 +313,12 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="mr-2 flex items-center gap-1.5 rounded-xl border border-white/5 bg-white/5 p-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="mr-0 flex items-center gap-1 rounded-xl border border-white/5 bg-white/5 p-1 sm:mr-2 sm:gap-1.5">
             <button
               onClick={() => setViewMode("preview")}
               className={cn(
-                "inline-flex h-8 items-center gap-2 rounded-lg px-3 text-[11px] font-bold transition-all",
+                "inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-bold transition-all sm:gap-2 sm:px-3",
                 viewMode === "preview" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -328,7 +328,7 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
             <button
               onClick={() => setViewMode("code")}
               className={cn(
-                "inline-flex h-8 items-center gap-2 rounded-lg px-3 text-[11px] font-bold transition-all",
+                "inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-bold transition-all sm:gap-2 sm:px-3",
                 viewMode === "code" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -341,21 +341,21 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
             <button
               onClick={handleFullscreenToggle}
               disabled={viewMode !== "preview"}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-white/5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/5 bg-white/5 text-muted-foreground hover:text-foreground disabled:opacity-30 sm:h-9 sm:w-9"
               title="Fullscreen"
             >
               {isFullscreen ? <Shrink size={14} /> : <Expand size={14} />}
             </button>
             <button
               onClick={handleCopy}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-white/5 text-muted-foreground hover:text-foreground"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/5 bg-white/5 text-muted-foreground hover:text-foreground sm:h-9 sm:w-9"
               title="Copy Code"
             >
               {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
             </button>
             <button
               onClick={handleDownload}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-white/5 text-muted-foreground hover:text-foreground"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/5 bg-white/5 text-muted-foreground hover:text-foreground sm:h-9 sm:w-9"
               title="Download"
             >
               <Download size={14} />
@@ -366,10 +366,10 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
 
       <div className={cn(
         "relative w-full overflow-hidden bg-[#fafafa]",
-        isFullscreen ? "h-[calc(100vh-89px)]" : "h-[480px]"
+        isFullscreen ? "h-[calc(100vh-89px)]" : "h-[420px] sm:h-[480px]"
       )}>
         {viewMode === "preview" ? (
-          <div className="flex h-full w-full items-start justify-center overflow-auto p-3 sm:p-4">
+          <div className="flex h-full w-full items-start justify-center overflow-x-hidden overflow-y-auto p-3 sm:p-4">
             <div
               className={cn(
                 "h-full overflow-hidden bg-white transition-all duration-500 ease-in-out",
@@ -386,14 +386,14 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
           </div>
         ) : (
           <div className="h-full flex flex-col bg-[#0d1117]">
-            <div className="flex flex-wrap gap-2 border-b border-white/5 px-4 py-3">
+            <div className="flex flex-wrap gap-2 border-b border-white/5 px-3 py-3 sm:px-4">
               {availableTabs.map((tab) => (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => setActiveTab(tab)}
                   className={cn(
-                    "rounded-full px-3 py-1.5 text-[11px] font-bold transition-all",
+                    "rounded-full px-2.5 py-1.5 text-[10px] font-bold transition-all sm:px-3 sm:text-[11px]",
                     resolvedActiveTab === tab ? "bg-white/10 text-white shadow-sm" : "text-white/40 hover:text-white/60"
                   )}
                 >
@@ -401,7 +401,7 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
                 </button>
               ))}
             </div>
-            <pre className="flex-1 overflow-auto p-6 font-mono text-[13px] leading-relaxed text-white/90 scrollbar-thin">
+            <pre className="flex-1 overflow-auto p-3 text-[12px] leading-relaxed text-white/90 scrollbar-thin sm:p-6 sm:text-[13px]">
               <code>{highlightCode(getCode(resolvedActiveTab), resolvedActiveTab)}</code>
             </pre>
           </div>

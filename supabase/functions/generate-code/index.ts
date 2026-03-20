@@ -99,13 +99,20 @@ const systemPrompt = `You are an expert front-end developer AND world-class UI/U
 
 ══════════ VISUAL DESIGN RULES ══════════
 
-- Effects (glow, blur, shadow) controlled: strongest on 1-2 key elements
+- Effects (glow, blur, shadow) controlled: strongest on 1–2 key elements
 - Background must remain subtle
-- Depth layers: Background -> Content -> Hero focus
+- Depth layers: Background → Content → Hero focus
 - Typography hierarchy: one dominant line, supporting lines smaller/lighter
 - Consistent spacing scale (8px,12px,16px,24px,32px)
 - Clean, responsive layout (flex/grid)
 - No overflow issues
+
+══════════ EXECUTION INSTRUCTIONS ══════════
+
+- Identify non-negotiable requirements first
+- Match requested layout, width, style, and animations closely
+- Preserve exact measurements (e.g., 1200px)
+- Follow the user request exactly and return the final answer ONLY as the required JSON object
 
 ══════════ EXPLANATION RULE ══════════
 

@@ -44,7 +44,7 @@ const StarBackground = () => {
 
     const logicalWidth = getLogicalWidth();
     const logicalHeight = getLogicalHeight();
-    const density = isCoarsePointer ? 12000 : 8000;
+    const density = isCoarsePointer ? 8000 : 5200;
     const count = Math.floor((logicalWidth * logicalHeight) / density);
     starsRef.current = Array.from({ length: count }, () => ({
       x: Math.random() * logicalWidth,
