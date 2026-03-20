@@ -5,6 +5,34 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+type GenerateCodeRequest = {
+  prompt?: unknown;
+  model?: unknown;
+  image?: unknown;
+};
+
+type GeneratedCodePayload = {
+  html: string;
+  css: string;
+  js: string;
+  explanation: string;
+};
+
+type GatewayMessageContent =
+  | string
+  | Array<{
+      type?: string;
+      text?: string;
+    }>;
+
+const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+
+const jsonResponse = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: jsonHeaders,
+  });
+
 const systemPrompt = `You are an expert frontend developer that turns a user's UI request into code.
 
 You must treat the user's request as a spec, not inspiration.
@@ -54,19 +82,99 @@ Execution instructions:
 - ${hasImage ? "An image is attached, so use it as a visual reference and keep the generated UI aligned to it" : "No image is attached, so rely on the written request without inventing extra sections"}
 - Return the final answer only as the required JSON object`;
 
+const buildUserMessage = (prompt: string, image?: string) => {
+  const textPart = {
+    type: "text",
+    text: buildUserPrompt(prompt, Boolean(image)),
+  };
+
+  if (!image) {
+    return textPart.text;
+  }
+
+  return [
+    textPart,
+    {
+      type: "image_url",
+      image_url: {
+        url: image,
+      },
+    },
+  ];
+};
+
+const extractGeneratedCode = (content: string): GeneratedCodePayload => {
+  let cleaned = content.trim();
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    console.error("Failed to parse AI response:", cleaned);
+    const jsonMatch = cleaned.match(/\{[\s\S]*"html"[\s\S]*"css"[\s\S]*"js"[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error("Could not parse generated code");
+    }
+    parsed = JSON.parse(jsonMatch[0]);
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("AI response was not a JSON object");
+  }
+
+  const code = parsed as Record<string, unknown>;
+  if (
+    typeof code.html !== "string" ||
+    typeof code.css !== "string" ||
+    typeof code.js !== "string"
+  ) {
+    throw new Error("AI response was missing required code fields");
+  }
+
+  return {
+    html: code.html,
+    css: code.css,
+    js: code.js,
+    explanation: typeof code.explanation === "string" ? code.explanation : "",
+  };
+};
+
+const getTextContent = (content: GatewayMessageContent | null | undefined) => {
+  if (typeof content === "string") {
+    return content;
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .filter((item) => item?.type === "text" && typeof item.text === "string")
+      .map((item) => item.text)
+      .join("\n")
+      .trim();
+  }
+
+  return "";
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const { prompt, model, image } = await req.json();
+  if (req.method !== "POST") {
+    return jsonResponse({ error: "Method not allowed" }, 405);
+  }
 
-    if (!prompt || typeof prompt !== "string") {
-      return new Response(JSON.stringify({ error: "Missing prompt" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+  try {
+    const body = (await req.json()) as GenerateCodeRequest;
+    const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
+    const model = typeof body.model === "string" && body.model.trim() ? body.model : "google/gemini-3-flash-preview";
+    const image = typeof body.image === "string" && body.image.trim() ? body.image : undefined;
+
+    if (!prompt) {
+      return jsonResponse({ error: "Missing prompt" }, 400);
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -81,10 +189,10 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: model || "google/gemini-3-flash-preview",
+        model,
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: buildUserPrompt(prompt, Boolean(image)) },
+          { role: "user", content: buildUserMessage(prompt, image) },
         ],
         temperature: 0.2,
       }),
@@ -92,71 +200,39 @@ serve(async (req) => {
 
     if (!response.ok) {
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonResponse({ error: "Rate limit exceeded. Please try again in a moment." }, 429);
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Usage limit reached. Please add credits to continue." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return jsonResponse({ error: "Usage limit reached. Please add credits to continue." }, 402);
       }
       const text = await response.text();
       console.error("AI gateway error:", response.status, text);
-      return new Response(JSON.stringify({ error: "AI generation failed" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "AI generation failed" }, 500);
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const content = getTextContent(data?.choices?.[0]?.message?.content as GatewayMessageContent | undefined);
 
     if (!content) {
       throw new Error("No content returned from AI");
     }
 
-    // Parse the JSON response - handle potential markdown code fences
-    let cleaned = content.trim();
-    if (cleaned.startsWith("```")) {
-      cleaned = cleaned.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
-    }
+    const code = extractGeneratedCode(content);
 
-    let code;
-    try {
-      code = JSON.parse(cleaned);
-    } catch {
-      console.error("Failed to parse AI response:", cleaned);
-      // Try to extract JSON from the response
-      const jsonMatch = cleaned.match(/\{[\s\S]*"html"[\s\S]*"css"[\s\S]*"js"[\s\S]*\}/);
-      if (jsonMatch) {
-        code = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("Could not parse generated code");
-      }
-    }
-
-    if (
-      !code ||
-      typeof code !== "object" ||
-      typeof code.html !== "string" ||
-      typeof code.css !== "string" ||
-      typeof code.js !== "string"
-    ) {
-      throw new Error("AI response was missing required code fields");
-    }
-
-    return new Response(JSON.stringify({ code }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return jsonResponse({
+      explanation: code.explanation,
+      message: code.explanation || "Generated UI successfully.",
+      code: {
+        html: code.html,
+        css: code.css,
+        js: code.js,
+        tailwind: code.css,
+        javascript: code.js,
+        python: "",
+      },
     });
   } catch (e) {
     console.error("generate-code error:", e);
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return jsonResponse({ error: e instanceof Error ? e.message : "Unknown error" }, 500);
   }
 });

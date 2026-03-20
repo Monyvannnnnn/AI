@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Code2, Copy, Download, Eye, Expand, Shrink } from "lucide-react";
 import type { GeneratedCode } from "@/types/chat";
+import { buildStandaloneHtml, looksLikeCss } from "@/lib/code-output";
 
 const TABS = ["HTML", "Tailwind", "JavaScript", "Python"] as const;
 const TAB_KEY_MAP: Record<string, keyof GeneratedCode> = {
@@ -39,9 +40,6 @@ interface CodeOutputProps {
 
 const escapeHtml = (value: string) =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-const looksLikeCss = (code: string) =>
-  /[{][^}]*[:;][^}]*[}]|^@media|^@import|^[.#a-zA-Z][\w\s,:>~#[\].()-]*\s*\{/m.test(code);
 
 const isMarkupTab = (tab: string, code = "") =>
   tab === "HTML" || (tab === "Tailwind" && !looksLikeCss(code));
@@ -82,17 +80,6 @@ const formatPython = (code: string) =>
     .replace(/:\s*/g, ":\n    ")
     .replace(/\n{2,}/g, "\n")
     .trim();
-
-const buildDocument = ({ body, styles = "", scripts = "", includeTailwind = false }: { body: string; styles?: string; scripts?: string; includeTailwind?: boolean }) => `<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    ${includeTailwind ? '<script src="https://cdn.tailwindcss.com"></script>' : ""}
-    ${styles ? `<style>${styles}</style>` : ""}
-  </head>
-  <body>${body}${scripts ? `<script>${scripts}</script>` : ""}</body>
-</html>`;
 
 const highlightCode = (code: string, tab: string) => {
   const language =
@@ -255,12 +242,7 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
 
   if (!visible || !generatedCode) return null;
 
-  const previewDocument = buildDocument({
-    body: generatedCode.html || generatedCode.tailwind,
-    styles: looksLikeCss(generatedCode.tailwind) ? generatedCode.tailwind : "",
-    scripts: generatedCode.javascript,
-    includeTailwind: Boolean(generatedCode.tailwind && !looksLikeCss(generatedCode.tailwind)),
-  });
+  const previewDocument = buildStandaloneHtml(generatedCode);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(getCode(resolvedActiveTab));
@@ -269,11 +251,11 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
   };
 
   const handleDownload = () => {
-    const blob = new Blob([getCode(resolvedActiveTab)], { type: "text/plain" });
+    const blob = new Blob([buildStandaloneHtml(generatedCode)], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `generated-${resolvedActiveTab.toLowerCase()}.${FILE_EXTENSIONS[resolvedActiveTab]}`;
+    link.download = "generated-website.html";
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -341,8 +323,8 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
           <button
             type="button"
             onClick={handleDownload}
-            aria-label="Download"
-            title="Download"
+            aria-label="Download website"
+            title="Download website"
             className="inline-flex h-9 min-w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 text-muted-foreground"
           >
             <Download size={14} />

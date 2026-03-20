@@ -7,7 +7,7 @@ interface GeneratedCodePanelProps {
 
 const GeneratedCodePanel = ({ code }: GeneratedCodePanelProps) => {
   return (
-    <div className="mt-4 overflow-hidden rounded-3xl border border-primary/15 bg-background/70">
+    <div className="mt-4">
       <CodeOutput visible generatedCode={code} />
     </div>
   );

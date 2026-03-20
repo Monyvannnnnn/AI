@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Download, MessageSquare, MessageSquarePlus, Pencil, Search, Sparkles, Trash2 } from "lucide-react";
+import { Download, MessageSquarePlus, Pencil, Search, Trash2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -20,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { ChatThread } from "@/types/chat";
+import { cn } from "@/lib/utils";
 
 interface ChatSidebarProps {
   chats: ChatThread[];
@@ -45,23 +47,6 @@ const getRelativeGroup = (value: string) => {
   return "Earlier";
 };
 
-const formatTimestamp = (value: string) =>
-  new Date(value).toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-
-const getPreview = (chat: ChatThread) => {
-  const lastMessage =
-    [...chat.messages].reverse().find((message) => message.role === "user" && message.content.trim()) ??
-    [...chat.messages].reverse().find((message) => message.content.trim());
-  if (!lastMessage) return "No messages yet";
-  const flattened = lastMessage.content.replace(/\s+/g, " ").trim();
-  return flattened.length > 84 ? `${flattened.slice(0, 84)}...` : flattened;
-};
-
 const ChatSidebar = ({
   chats,
   activeChatId,
@@ -81,7 +66,11 @@ const ChatSidebar = ({
     setDraftTitle(renameTarget?.title ?? "");
   }, [renameTarget]);
 
-  const groupedChats = chats.reduce<Record<string, ChatThread[]>>((accumulator, chat) => {
+  const filteredChats = chats.filter((chat) => 
+    chat.title.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const groupedChats = filteredChats.reduce<Record<string, ChatThread[]>>((accumulator, chat) => {
     const label = getRelativeGroup(chat.updatedAt);
     accumulator[label] = [...(accumulator[label] ?? []), chat];
     return accumulator;
@@ -102,144 +91,148 @@ const ChatSidebar = ({
   };
 
   return (
-    <>
-      <aside className="flex h-full w-full flex-col overflow-hidden rounded-[30px] border border-white/15 bg-[linear-gradient(180deg,hsl(var(--card)/0.94),hsl(var(--background)/0.92))] shadow-[0_30px_120px_hsl(var(--background)/0.55)] backdrop-blur-2xl lg:max-w-[320px]">
-        <div className="border-b border-white/10 p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-primary/30 bg-primary/12 text-primary shadow-[0_0_34px_hsl(var(--primary)/0.16)]">
-            <Sparkles size={18} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-semibold uppercase tracking-[0.26em] text-foreground/55">Workspace</div>
-            <div className="mt-1 text-lg font-semibold text-foreground">Conversation Memory</div>
-            <div className="mt-1 text-xs text-muted-foreground">Searchable history with quick actions and recent context.</div>
-          </div>
-        </div>
+    <div className="flex h-full w-full flex-col gap-5 px-1 py-2">
+      <div className="space-y-4">
+        <motion.button
+          whileHover={{ scale: 1.02, filter: "brightness(1.1)" }}
+          whileTap={{ scale: 0.98 }}
+          onClick={onNewChat}
+          className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-primary px-4 py-3 text-[14px] font-bold text-primary-foreground shadow-[0_0_20px_rgba(var(--primary),0.1)] transition-shadow hover:shadow-[0_0_30px_rgba(var(--primary),0.2)]"
+        >
+          <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/10 opacity-0 transition-opacity group-hover:opacity-100" />
+          <MessageSquarePlus size={18} strokeWidth={2.5} />
+          New Thread
+        </motion.button>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
-            <div className="text-[11px] uppercase tracking-[0.2em] text-foreground/45">Chats</div>
-            <div className="mt-1 text-lg font-semibold text-foreground">{chats.length}</div>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
-            <div className="text-[11px] uppercase tracking-[0.2em] text-foreground/45">Search</div>
-            <div className="mt-1 text-sm font-medium text-foreground">{search.trim() ? "Filtered" : "All visible"}</div>
-          </div>
-        </div>
-
-        <button type="button" onClick={onNewChat} className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-[0_0_40px_hsl(var(--primary)/0.16)] transition-all hover:brightness-110 hover:shadow-[0_0_56px_hsl(var(--primary)/0.24)]">
-          <MessageSquarePlus size={16} />
-          Start New Chat
-        </button>
-
-        <div className="relative mt-4">
-          <Search size={16} className="pointer-events-none absolute left-3 top-3.5 text-muted-foreground" />
+        <div className="relative">
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/30" />
           <input
             value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Search chats"
-            className="w-full rounded-2xl border border-white/12 bg-white/6 py-3 pl-10 pr-4 text-sm text-foreground outline-none placeholder:text-muted-foreground/75 focus:border-primary/35 focus:bg-white/10"
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search threads"
+            className="w-full rounded-2xl border border-white/5 bg-white/[0.03] py-2.5 pl-10 pr-4 text-[13px] text-foreground outline-none transition-all placeholder:text-muted-foreground/30 focus:bg-white/[0.06] focus:ring-1 focus:ring-primary/20"
           />
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {chats.length === 0 ? (
-          <div className="flex h-full min-h-[240px] flex-col items-center justify-center rounded-[28px] border border-dashed border-white/12 bg-white/4 px-6 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
-              <MessageSquare size={20} />
+      <div className="flex-1 overflow-y-auto pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <AnimatePresence mode="popLayout">
+          {filteredChats.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mt-12 text-center"
+            >
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.03] text-muted-foreground/20">
+                <Search size={24} />
+              </div>
+              <p className="mt-4 text-[12px] font-medium text-muted-foreground/40">No threads found</p>
+            </motion.div>
+          ) : (
+            <div className="space-y-8">
+              {orderedGroups.map((label) => (
+                <motion.div
+                  layout
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  key={label}
+                  className="space-y-2"
+                >
+                  <h3 className="sticky top-0 z-10 bg-transparent px-3 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/30 backdrop-blur-sm">
+                    {label}
+                  </h3>
+                  <div className="space-y-1">
+                    {groupedChats[label].map((chat) => {
+                      const isActive = activeChatId === chat.chatId;
+                      return (
+                        <motion.div
+                          layout
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          key={chat.chatId}
+                          className={cn(
+                            "group relative flex items-center rounded-[18px] transition-all duration-300",
+                            isActive 
+                              ? "bg-primary/[0.08] text-foreground ring-1 ring-primary/20 shadow-[0_0_20px_rgba(var(--primary),0.05)]" 
+                              : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
+                          )}
+                        >
+                          {isActive && (
+                            <motion.div
+                              layoutId="active-indicator"
+                              className="absolute left-0 h-6 w-[3px] rounded-full bg-primary"
+                              transition={{ type: "spring", bounce: 0.3, duration: 0.6 }}
+                            />
+                          )}
+                          
+                          <button
+                            type="button"
+                            onClick={() => onSelectChat(chat.chatId)}
+                            className="flex-1 truncate px-4 py-3.5 text-left text-[14px] font-semibold leading-tight"
+                          >
+                            <div className="truncate">{chat.title}</div>
+                          </button>
+                          
+                          <div className="flex items-center gap-1 pr-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setRenameTarget(chat); }}
+                              className="rounded-xl p-2 transition-colors hover:bg-white/10"
+                              title="Rename"
+                            >
+                              <Pencil size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); onDownloadChat(chat); }}
+                              className="rounded-xl p-2 transition-colors hover:bg-white/10"
+                              title="Export"
+                            >
+                              <Download size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setDeleteTarget(chat); }}
+                              className="rounded-xl p-2 text-destructive/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                              title="Delete"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              ))}
             </div>
-            <div className="mt-4 text-base font-semibold text-foreground">No chats yet</div>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">Start a conversation and your recent work will appear here for quick access.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {orderedGroups.map((label) => (
-              <section key={label}>
-                <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-foreground/40">{label}</div>
-                <div className="grid gap-2">
-                  {groupedChats[label].map((chat) => {
-                    const isActive = activeChatId === chat.chatId;
-                    return (
-                      <button
-                        key={chat.chatId}
-                        type="button"
-                        onClick={() => onSelectChat(chat.chatId)}
-                        className={`group w-full rounded-[24px] border px-4 py-3 text-left transition-all ${
-                          isActive
-                            ? "border-primary/35 bg-primary/12 shadow-[0_0_50px_hsl(var(--primary)/0.12)]"
-                            : "border-white/10 bg-white/4 hover:border-primary/18 hover:bg-white/8"
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${isActive ? "border-primary/30 bg-primary/14 text-primary" : "border-white/10 bg-white/5 text-muted-foreground"}`}>
-                            <MessageSquare size={16} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="break-words text-sm font-semibold leading-5 text-foreground">{chat.title}</div>
-                                <div className="mt-1 break-words text-xs leading-5 text-muted-foreground">{getPreview(chat)}</div>
-                              </div>
-                              <div className="flex shrink-0 items-center opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
-                                <button type="button" onClick={(event) => { event.stopPropagation(); setRenameTarget(chat); }} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label={`Rename ${chat.title}`}>
-                                  <Pencil size={14} />
-                                </button>
-                                <button type="button" onClick={(event) => { event.stopPropagation(); onDownloadChat(chat); }} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label={`Download ${chat.title}`}>
-                                  <Download size={14} />
-                                </button>
-                                <button type="button" onClick={(event) => { event.stopPropagation(); setDeleteTarget(chat); }} className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-destructive" aria-label={`Delete ${chat.title}`}>
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            </div>
-                            <div className="mt-3 flex items-center justify-between gap-3">
-                              <div className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-foreground/70">{chat.messages.length} {chat.messages.length === 1 ? "message" : "messages"}</div>
-                              <div className="text-[11px] text-muted-foreground">{formatTimestamp(chat.updatedAt)}</div>
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
-          </div>
-        )}
+          )}
+        </AnimatePresence>
       </div>
-      </aside>
 
+      {/* Dialogs */}
       <Dialog open={Boolean(renameTarget)} onOpenChange={(open) => !open && setRenameTarget(null)}>
-        <DialogContent className="max-w-md rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,hsl(var(--card)/0.98),hsl(var(--background)/0.96))] p-0 shadow-[0_30px_100px_hsl(var(--background)/0.55)]">
-          <div className="border-b border-white/10 px-6 py-5">
-            <DialogHeader className="space-y-2 text-left">
-              <DialogTitle className="text-xl text-foreground">Rename Chat</DialogTitle>
-              <DialogDescription className="text-sm leading-6 text-muted-foreground">
-                Update the conversation title. Keep it short and easy to recognize from the sidebar.
-              </DialogDescription>
-            </DialogHeader>
-          </div>
-          <div className="px-6 py-5">
+        <DialogContent className="max-w-[400px] border-white/5 bg-card/95 p-6 shadow-2xl backdrop-blur-3xl sm:rounded-[28px]">
+          <DialogHeader className="gap-2">
+            <DialogTitle className="text-xl font-bold">Rename Thread</DialogTitle>
+          </DialogHeader>
+          <div className="py-6">
             <input
               value={draftTitle}
-              onChange={(event) => setDraftTitle(event.target.value)}
-              placeholder="Enter a new chat title"
+              onChange={(e) => setDraftTitle(e.target.value)}
+              placeholder="e.g. Dashboard Concept"
+              className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-3.5 text-sm font-medium outline-none transition-all focus:border-primary/40 focus:ring-1 focus:ring-primary/20"
               autoFocus
-              className="w-full rounded-2xl border border-white/12 bg-white/6 px-4 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-primary/35 focus:bg-white/10"
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  handleRenameConfirm();
-                }
-              }}
+              onKeyDown={(e) => e.key === 'Enter' && handleRenameConfirm()}
             />
           </div>
-          <DialogFooter className="border-t border-white/10 px-6 py-4 sm:justify-between sm:space-x-0">
-            <Button type="button" variant="ghost" className="rounded-xl text-muted-foreground hover:text-foreground" onClick={() => setRenameTarget(null)}>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" className="rounded-2xl hover:bg-white/5" onClick={() => setRenameTarget(null)}>
               Cancel
             </Button>
-            <Button type="button" className="rounded-xl px-5" onClick={handleRenameConfirm} disabled={!draftTitle.trim()}>
+            <Button className="rounded-2xl bg-primary px-6" onClick={handleRenameConfirm}>
               Save Changes
             </Button>
           </DialogFooter>
@@ -247,26 +240,24 @@ const ChatSidebar = ({
       </Dialog>
 
       <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent className="max-w-md rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,hsl(var(--card)/0.98),hsl(var(--background)/0.96))] p-0 shadow-[0_30px_100px_hsl(var(--background)/0.55)]">
-          <div className="border-b border-white/10 px-6 py-5">
-            <AlertDialogHeader className="space-y-2 text-left">
-              <AlertDialogTitle className="text-xl text-foreground">Delete Chat</AlertDialogTitle>
-              <AlertDialogDescription className="text-sm leading-6 text-muted-foreground">
-                This will permanently remove <span className="font-medium text-foreground">{deleteTarget?.title ?? "this chat"}</span> and its message history.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-          </div>
-          <AlertDialogFooter className="border-t border-white/10 px-6 py-4 sm:justify-between sm:space-x-0">
-            <AlertDialogCancel className="mt-0 rounded-xl border-white/10 bg-white/5 text-foreground hover:bg-white/10 hover:text-foreground">
-              Cancel
+        <AlertDialogContent className="max-w-[400px] border-white/5 bg-card/95 p-6 shadow-2xl backdrop-blur-3xl sm:rounded-[28px]">
+          <AlertDialogHeader className="gap-2">
+            <AlertDialogTitle className="text-xl font-bold text-destructive">Delete Thread?</AlertDialogTitle>
+            <AlertDialogDescription className="text-[13px] leading-relaxed text-muted-foreground/70">
+              This action is permanent. All code generations and chat history for this thread will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+            <AlertDialogCancel className="rounded-2xl border-white/10 bg-white/5 hover:bg-white/10">
+              Go Back
             </AlertDialogCancel>
-            <AlertDialogAction className="rounded-xl bg-destructive px-5 text-destructive-foreground hover:bg-destructive/90" onClick={handleDeleteConfirm}>
-              Delete Chat
+            <AlertDialogAction onClick={handleDeleteConfirm} className="rounded-2xl bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Confirm Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 };
 

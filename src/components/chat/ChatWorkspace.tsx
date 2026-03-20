@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Bot, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import MessageComposer from "@/components/chat/MessageComposer";
 import ChatMessageItem from "@/components/chat/ChatMessageItem";
 import type { AIModel } from "@/hooks/useCodeGenerator";
@@ -32,6 +32,7 @@ const ChatWorkspace = ({
   isGenerating,
   isEditing,
 }: ChatWorkspaceProps) => {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -39,38 +40,41 @@ const ChatWorkspace = ({
   }, [activeChat?.messages.length, activeChat?.messages.at(-1)?.content]);
 
   return (
-    <section className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-transparent">
-      <div className="bg-transparent px-4 py-4 sm:px-5">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary sm:h-11 sm:w-11">
-            <Bot size={18} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-foreground">{activeChat?.title || "New Chat"}</div>
-            <div className="truncate text-xs text-muted-foreground">Futuristic AI code workspace with memory</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-3 py-4 pb-[18rem] sm:px-6 sm:py-5 sm:pb-[20rem]">
-        {activeChat?.messages.length ? (
-          <div className="grid gap-4">
-            {activeChat.messages.map((message) => (
-              <ChatMessageItem key={message.id} message={message} onCopy={onCopyMessage} onEdit={onEditMessage} />
-            ))}
-            <div ref={endRef} />
-          </div>
-        ) : (
-          <div className="mx-auto mt-6 max-w-3xl rounded-[28px] border border-primary/20 bg-card/75 p-6 text-center shadow-[0_0_90px_hsl(var(--primary)/0.12)] sm:mt-10 sm:rounded-[32px] sm:p-8">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary sm:h-14 sm:w-14">
-              <Sparkles size={22} />
+    <div className="flex h-full flex-col">
+      <div 
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        <div className="mx-auto flex min-h-full flex-col py-8 sm:py-12">
+          {activeChat?.messages.length ? (
+            <div className="flex flex-col gap-8 pb-12">
+              {activeChat.messages.map((message) => (
+                <ChatMessageItem 
+                  key={message.id} 
+                  message={message} 
+                  onCopy={onCopyMessage} 
+                  onEdit={onEditMessage} 
+                />
+              ))}
+              <div ref={endRef} />
             </div>
-            <h2 className="mt-5 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Build with DEV404 chat.</h2>
-            <p className="mt-3 text-sm text-muted-foreground sm:text-base">
-              Ask for a navbar, a dashboard, a Node API, a refactor, or a full UI concept. The conversation persists per chat and generated code appears inline.
-            </p>
-          </div>
-        )}
+          ) : (
+            <div className="flex flex-1 items-center justify-center px-4">
+              <div className="w-full max-w-[600px] rounded-[32px] border border-white/5 bg-card/40 p-10 text-center shadow-2xl backdrop-blur-xl">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <Sparkles size={32} />
+                </div>
+                <h2 className="mt-8 text-3xl font-bold tracking-tight text-foreground">
+                  What can I help you build?
+                </h2>
+                <p className="mt-4 text-[15px] leading-relaxed text-muted-foreground/80">
+                  Ask for a dashboard, a landing page, or a complex UI concept. 
+                  I'll generate the code and explain the implementation.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <MessageComposer
@@ -83,7 +87,7 @@ const ChatWorkspace = ({
         isGenerating={isGenerating}
         isEditing={isEditing}
       />
-    </section>
+    </div>
   );
 };
 

@@ -1,5 +1,6 @@
 import { Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import BrandLogo from "@/components/BrandLogo";
 import ChatSidebar from "@/components/chat/ChatSidebar";
 import ChatWorkspace from "@/components/chat/ChatWorkspace";
@@ -36,117 +37,158 @@ const ChatAppShell = ({ chat }: ChatAppShellProps) => {
     cancelEditing,
   } = chat;
 
-  const desktopSidebarClasses = desktopSidebarOpen
-    ? "lg:translate-x-0 lg:scale-100 lg:opacity-100"
-    : "lg:pointer-events-none lg:-translate-x-8 lg:scale-[0.98] lg:opacity-0";
-  const desktopToggleClasses = desktopSidebarOpen ? "lg:left-[340px]" : "lg:left-4";
-
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background">
+    <div className="relative flex h-screen w-full overflow-hidden bg-background font-sans">
       <StarBackground />
-      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.14),transparent_32%),radial-gradient(circle_at_bottom_right,hsl(190_80%_60%/0.10),transparent_22%)]" />
+      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.05),transparent_40%),radial-gradient(circle_at_bottom_right,hsl(190_80%_60%/0.03),transparent_30%)]" />
 
-      <div className="relative z-10 flex min-h-screen flex-col">
-        <header className="fixed inset-x-0 top-0 z-40 bg-background/70 px-4 py-3 shadow-[0_12px_40px_hsl(var(--background)/0.12)] backdrop-blur-xl">
-          <div className="mx-auto flex w-full max-w-[1200px] items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setMobileSidebarOpen((value) => !value)}
-                className="rounded-xl border border-border/60 p-2 text-muted-foreground lg:hidden"
-                aria-label={mobileSidebarOpen ? "Hide sidebar" : "Show sidebar"}
-              >
-                <Menu size={18} />
-              </button>
-              <BrandLogo showIcon={false} />
-            </div>
+      {/* Desktop Sidebar */}
+      <motion.aside
+        initial={false}
+        animate={{ 
+          width: desktopSidebarOpen ? 260 : 0,
+          opacity: desktopSidebarOpen ? 1 : 0
+        }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        className="relative z-30 hidden h-full shrink-0 border-r border-white/5 bg-card/20 backdrop-blur-3xl lg:block"
+      >
+        <div className="flex h-full w-[260px] flex-col overflow-hidden">
+          <div className="flex items-center justify-between border-b border-white/5 p-5">
+            <BrandLogo showIcon={false} />
+            <motion.button
+              whileHover={{ scale: 1.1, backgroundColor: "rgba(255,255,255,0.05)" }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setDesktopSidebarOpen(false)}
+              className="rounded-xl p-2 text-muted-foreground/60 hover:text-foreground"
+            >
+              <PanelLeftClose size={18} />
+            </motion.button>
+          </div>
+          
+          <div className="flex-1 overflow-hidden px-3 py-4">
+            <ChatSidebar
+              chats={chats}
+              activeChatId={activeChat?.chatId ?? null}
+              search={search}
+              onSearchChange={setSearch}
+              onNewChat={addNewChat}
+              onSelectChat={selectChat}
+              onDeleteChat={deleteChat}
+              onRenameChat={renameChat}
+              onDownloadChat={downloadChat}
+            />
+          </div>
 
-            <div className="flex items-center gap-2">
+          <div className="border-t border-white/5 p-5">
+            <div className="flex items-center justify-between rounded-2xl bg-white/[0.03] p-2">
+              <span className="pl-3 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/40">Theme</span>
               <ThemeToggle />
             </div>
           </div>
+        </div>
+      </motion.aside>
+
+      {/* Main Content Area */}
+      <main className="relative flex min-w-0 flex-1 flex-col">
+        {/* Mobile Header */}
+        <header className="flex h-16 items-center justify-between border-b border-white/5 bg-background/40 px-4 backdrop-blur-xl lg:hidden">
+          <div className="flex items-center gap-4">
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setMobileSidebarOpen(true)}
+              className="rounded-xl border border-white/10 bg-white/5 p-2 text-muted-foreground"
+            >
+              <Menu size={20} />
+            </motion.button>
+            <BrandLogo showIcon={false} />
+          </div>
+          <ThemeToggle />
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col pt-[73px] lg:flex-row">
-          <div
-            className={`overflow-hidden border-b border-white/10 bg-background/30 px-3 transition-[max-height,opacity,padding] duration-300 ease-out sm:px-4 lg:hidden ${
-              mobileSidebarOpen ? "max-h-[75vh] opacity-100 py-3" : "max-h-0 opacity-0 py-0"
-            }`}
-          >
-            <div className="mx-auto w-full max-w-[1200px]">
-              <ChatSidebar
-                chats={chats}
-                activeChatId={activeChat?.chatId ?? null}
-                search={search}
-                onSearchChange={setSearch}
-                onNewChat={() => {
-                  addNewChat();
-                  setMobileSidebarOpen(false);
-                }}
-                onSelectChat={(chatId) => {
-                  selectChat(chatId);
-                  setMobileSidebarOpen(false);
-                }}
-                onDeleteChat={deleteChat}
-                onRenameChat={renameChat}
-                onDownloadChat={downloadChat}
-              />
-            </div>
-          </div>
+        {/* Desktop Sidebar Toggle (when closed) */}
+        <AnimatePresence>
+          {!desktopSidebarOpen && (
+            <motion.button
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -20, opacity: 0 }}
+              whileHover={{ scale: 1.05, x: 5 }}
+              onClick={() => setDesktopSidebarOpen(true)}
+              className="fixed left-6 top-6 z-40 hidden rounded-2xl border border-white/10 bg-card/80 p-3 text-primary shadow-2xl shadow-primary/10 backdrop-blur-xl lg:block"
+              title="Open sidebar"
+            >
+              <PanelLeftOpen size={20} strokeWidth={2.5} />
+            </motion.button>
+          )}
+        </AnimatePresence>
 
-          <button
-            type="button"
-            onClick={() => setDesktopSidebarOpen((value) => !value)}
-            className={`fixed top-[88px] z-40 hidden rounded-xl border border-border/60 bg-background/85 p-2 text-muted-foreground shadow-[0_12px_30px_hsl(var(--background)/0.22)] backdrop-blur-xl transition-all duration-300 ease-out hover:scale-105 hover:border-primary/30 lg:inline-flex ${desktopToggleClasses}`}
-            aria-label={desktopSidebarOpen ? "Hide sidebar" : "Show sidebar"}
-            title={desktopSidebarOpen ? "Close sidebar" : "Open sidebar"}
-          >
-            {desktopSidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
-          </button>
-
-          <div
-            className={`fixed inset-y-0 left-0 z-30 hidden w-[320px] max-w-[320px] transition-[transform,opacity] duration-300 ease-out lg:left-4 lg:top-[73px] lg:block lg:h-[calc(100vh-73px)] ${desktopSidebarClasses}`}
-          >
-            <div className="h-full w-full max-w-[320px] transition-transform duration-300 ease-out">
-              <ChatSidebar
-                chats={chats}
-                activeChatId={activeChat?.chatId ?? null}
-                search={search}
-                onSearchChange={setSearch}
-                onNewChat={() => {
-                  addNewChat();
-                  setMobileSidebarOpen(false);
-                }}
-                onSelectChat={(chatId) => {
-                  selectChat(chatId);
-                  setMobileSidebarOpen(false);
-                }}
-                onDeleteChat={deleteChat}
-                onRenameChat={renameChat}
-                onDownloadChat={downloadChat}
-              />
-            </div>
-          </div>
-
-          <div className="min-w-0 flex-1 overflow-hidden px-3 pb-3 sm:px-4 sm:pb-4 lg:px-0 lg:pb-0">
-            <div className="mx-auto h-full w-full max-w-[1200px]">
-              <ChatWorkspace
-                activeChat={activeChat}
-                input={input}
-                aiModel={aiModel}
-                onInputChange={setInput}
-                onModelChange={setAiModel}
-                onSend={sendMessage}
-                onCancelEdit={cancelEditing}
-                onCopyMessage={copyMessage}
-                onEditMessage={startEditing}
-                isGenerating={isGenerating}
-                isEditing={Boolean(editingMessageId)}
-              />
-            </div>
+        <div className="flex-1 overflow-hidden">
+          <div className="mx-auto h-full w-full max-w-[800px]">
+            <ChatWorkspace
+              activeChat={activeChat}
+              input={input}
+              aiModel={aiModel}
+              onInputChange={setInput}
+              onModelChange={setAiModel}
+              onSend={sendMessage}
+              onCancelEdit={cancelEditing}
+              onCopyMessage={copyMessage}
+              onEditMessage={startEditing}
+              isGenerating={isGenerating}
+              isEditing={Boolean(editingMessageId)}
+            />
           </div>
         </div>
-      </div>
+      </main>
+
+      {/* Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {mobileSidebarOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileSidebarOpen(false)}
+              className="fixed inset-0 z-50 bg-background/60 backdrop-blur-md lg:hidden"
+            />
+            <motion.div
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col border-r border-white/5 bg-card/95 p-5 shadow-2xl lg:hidden"
+            >
+              <div className="mb-8 flex items-center justify-between">
+                <BrandLogo showIcon={false} />
+                <button
+                  onClick={() => setMobileSidebarOpen(false)}
+                  className="rounded-xl p-2 text-muted-foreground/60"
+                >
+                  <PanelLeftClose size={20} />
+                </button>
+              </div>
+              <ChatSidebar
+                chats={chats}
+                activeChatId={activeChat?.chatId ?? null}
+                search={search}
+                onSearchChange={setSearch}
+                onNewChat={() => {
+                  addNewChat();
+                  setMobileSidebarOpen(false);
+                }}
+                onSelectChat={(chatId) => {
+                  selectChat(chatId);
+                  setMobileSidebarOpen(false);
+                }}
+                onDeleteChat={deleteChat}
+                onRenameChat={renameChat}
+                onDownloadChat={downloadChat}
+              />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
