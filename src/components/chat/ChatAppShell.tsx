@@ -30,6 +30,7 @@ const ChatAppShell = ({ chat }: ChatAppShellProps) => {
     selectChat,
     deleteChat,
     renameChat,
+    clearHistory,
     copyMessage,
     downloadChat,
     sendMessage,
@@ -76,6 +77,7 @@ const ChatAppShell = ({ chat }: ChatAppShellProps) => {
               onDeleteChat={deleteChat}
               onRenameChat={renameChat}
               onDownloadChat={downloadChat}
+              onClearHistory={clearHistory}
             />
           </div>
 
@@ -184,6 +186,7 @@ const ChatAppShell = ({ chat }: ChatAppShellProps) => {
                 onDeleteChat={deleteChat}
                 onRenameChat={renameChat}
                 onDownloadChat={downloadChat}
+                onClearHistory={clearHistory}
               />
             </motion.div>
           </>

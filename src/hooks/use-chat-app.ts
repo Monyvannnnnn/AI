@@ -108,6 +108,11 @@ export const useChatApp = () => {
     });
   };
 
+  const clearHistory = () => {
+    setState({ chats: [], activeChatId: null });
+    toast.success("History cleared");
+  };
+
   const renameChat = (chatId: string, title: string) => {
     if (!title.trim()) return;
     updateChat(chatId, (chat) => ({ ...chat, title: title.trim() }));

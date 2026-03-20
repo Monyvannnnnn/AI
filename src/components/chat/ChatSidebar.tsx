@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Download, MessageSquarePlus, Pencil, Search, Trash2 } from "lucide-react";
+import { Download, MessageSquarePlus, Pencil, Search, Trash2, Trash } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +33,7 @@ interface ChatSidebarProps {
   onDeleteChat: (chatId: string) => void;
   onRenameChat: (chatId: string) => void;
   onDownloadChat: (chat: ChatThread) => void;
+  onClearHistory: () => void;
 }
 
 const getRelativeGroup = (value: string) => {
@@ -57,9 +58,11 @@ const ChatSidebar = ({
   onDeleteChat,
   onRenameChat,
   onDownloadChat,
+  onClearHistory,
 }: ChatSidebarProps) => {
   const [renameTarget, setRenameTarget] = useState<ChatThread | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ChatThread | null>(null);
+  const [isClearHistoryOpen, setIsClearHistoryOpen] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
 
   useEffect(() => {
@@ -130,83 +133,96 @@ const ChatSidebar = ({
               <p className="mt-4 text-[12px] font-medium text-muted-foreground/40">No threads found</p>
             </motion.div>
           ) : (
-            <div className="space-y-8">
-              {orderedGroups.map((label) => (
-                <motion.div
-                  layout
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  key={label}
-                  className="space-y-2"
-                >
-                  <h3 className="sticky top-0 z-10 bg-transparent px-3 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/30 backdrop-blur-sm">
-                    {label}
-                  </h3>
-                  <div className="space-y-1">
-                    {groupedChats[label].map((chat) => {
-                      const isActive = activeChatId === chat.chatId;
-                      return (
-                        <motion.div
-                          layout
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, scale: 0.95 }}
-                          key={chat.chatId}
-                          className={cn(
-                            "group relative flex items-center rounded-[18px] transition-all duration-300",
-                            isActive 
-                              ? "bg-primary/[0.08] text-foreground ring-1 ring-primary/20 shadow-[0_0_20px_rgba(var(--primary),0.05)]" 
-                              : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
-                          )}
-                        >
-                          {isActive && (
-                            <motion.div
-                              layoutId="active-indicator"
-                              className="absolute left-0 h-6 w-[3px] rounded-full bg-primary"
-                              transition={{ type: "spring", bounce: 0.3, duration: 0.6 }}
-                            />
-                          )}
-                          
-                          <button
-                            type="button"
-                            onClick={() => onSelectChat(chat.chatId)}
-                            className="flex-1 truncate px-4 py-3.5 text-left text-[14px] font-semibold leading-tight"
+            <div className="flex flex-col gap-8">
+              <div className="flex flex-col gap-8">
+                {orderedGroups.map((label) => (
+                  <motion.div
+                    layout
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    key={label}
+                    className="space-y-2"
+                  >
+                    <h3 className="sticky top-0 z-10 bg-transparent px-3 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/30 backdrop-blur-sm">
+                      {label}
+                    </h3>
+                    <div className="space-y-1">
+                      {groupedChats[label].map((chat) => {
+                        const isActive = activeChatId === chat.chatId;
+                        return (
+                          <motion.div
+                            layout
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            key={chat.chatId}
+                            className={cn(
+                              "group relative flex items-center rounded-[18px] transition-all duration-300",
+                              isActive 
+                                ? "bg-primary/[0.08] text-foreground ring-1 ring-primary/20 shadow-[0_0_20px_rgba(var(--primary),0.05)]" 
+                                : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
+                            )}
                           >
-                            <div className="truncate">{chat.title}</div>
-                          </button>
-                          
-                          <div className="flex items-center gap-1 pr-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                            {isActive && (
+                              <motion.div
+                                layoutId="active-indicator"
+                                className="absolute left-0 h-6 w-[3px] rounded-full bg-primary"
+                                transition={{ type: "spring", bounce: 0.3, duration: 0.6 }}
+                              />
+                            )}
+                            
                             <button
                               type="button"
-                              onClick={(e) => { e.stopPropagation(); setRenameTarget(chat); }}
-                              className="rounded-xl p-2 transition-colors hover:bg-white/10"
-                              title="Rename"
+                              onClick={() => onSelectChat(chat.chatId)}
+                              className="flex-1 truncate px-4 py-3.5 text-left text-[14px] font-semibold leading-tight"
                             >
-                              <Pencil size={13} />
+                              <div className="truncate">{chat.title}</div>
                             </button>
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); onDownloadChat(chat); }}
-                              className="rounded-xl p-2 transition-colors hover:bg-white/10"
-                              title="Export"
-                            >
-                              <Download size={13} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); setDeleteTarget(chat); }}
-                              className="rounded-xl p-2 text-destructive/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
-                              title="Delete"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              ))}
+                            
+                            <div className="flex items-center gap-1 pr-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setRenameTarget(chat); }}
+                                className="rounded-xl p-2 transition-colors hover:bg-white/10"
+                                title="Rename"
+                              >
+                                <Pencil size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); onDownloadChat(chat); }}
+                                className="rounded-xl p-2 transition-colors hover:bg-white/10"
+                                title="Export"
+                              >
+                                <Download size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setDeleteTarget(chat); }}
+                                className="rounded-xl p-2 text-destructive/40 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                                title="Delete"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+
+              {chats.length > 0 && !search.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setIsClearHistoryOpen(true)}
+                  className="mx-2 mt-4 flex items-center gap-2 px-2 py-3 text-[12px] font-semibold text-muted-foreground/40 transition-colors hover:text-destructive/60"
+                >
+                  <Trash size={14} />
+                  Clear History
+                </button>
+              )}
             </div>
           )}
         </AnimatePresence>
@@ -253,6 +269,31 @@ const ChatSidebar = ({
             </AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteConfirm} className="rounded-2xl bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Confirm Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isClearHistoryOpen} onOpenChange={setIsClearHistoryOpen}>
+        <AlertDialogContent className="max-w-[400px] border-white/5 bg-card/95 p-6 shadow-2xl backdrop-blur-3xl sm:rounded-[28px]">
+          <AlertDialogHeader className="gap-2">
+            <AlertDialogTitle className="text-xl font-bold text-destructive">Clear All History?</AlertDialogTitle>
+            <AlertDialogDescription className="text-[13px] leading-relaxed text-muted-foreground/70">
+              This will permanently delete <span className="font-bold text-foreground">{chats.length} conversations</span>. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+            <AlertDialogCancel className="rounded-2xl border-white/10 bg-white/5 hover:bg-white/10">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                onClearHistory();
+                setIsClearHistoryOpen(false);
+              }} 
+              className="rounded-2xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Clear Everything
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
