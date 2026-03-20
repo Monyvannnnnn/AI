@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Code2, Copy, Download, Eye, Expand, Shrink } from "lucide-react";
+import { Check, Code2, Copy, Download, Eye, Expand, Shrink, Monitor, Smartphone } from "lucide-react";
 import type { GeneratedCode } from "@/types/chat";
 import { buildStandaloneHtml, looksLikeCss } from "@/lib/code-output";
+import { cn } from "@/lib/utils";
 
 const TABS = ["HTML", "Tailwind", "JavaScript", "Python"] as const;
 const TAB_KEY_MAP: Record<string, keyof GeneratedCode> = {
@@ -9,12 +10,6 @@ const TAB_KEY_MAP: Record<string, keyof GeneratedCode> = {
   Tailwind: "tailwind",
   JavaScript: "javascript",
   Python: "python",
-};
-const FILE_EXTENSIONS: Record<string, string> = {
-  HTML: "html",
-  Tailwind: "html",
-  JavaScript: "js",
-  Python: "py",
 };
 const EMPTY_CODE: GeneratedCode = {
   html: "",
@@ -156,6 +151,7 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
   const [activeTab, setActiveTab] = useState<string>("HTML");
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<"code" | "preview">("preview");
+  const [deviceMode, setDeviceMode] = useState<"desktop" | "mobile">("desktop");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [typedCode, setTypedCode] = useState<GeneratedCode>(EMPTY_CODE);
 
@@ -243,6 +239,10 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
   if (!visible || !generatedCode) return null;
 
   const previewDocument = buildStandaloneHtml(generatedCode);
+  const previewFrameClass =
+    deviceMode === "mobile"
+      ? "w-full max-w-[375px] min-w-[320px] border-x border-black/5 shadow-2xl"
+      : "w-full max-w-[1280px] min-w-[320px] border border-black/5 shadow-[0_24px_80px_rgba(15,23,42,0.12)]";
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(getCode(resolvedActiveTab));
@@ -275,79 +275,138 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
   return (
     <div
       ref={containerRef}
-      className={`overflow-hidden border border-white/10 bg-card/70 shadow-[0_20px_80px_hsl(var(--background)/0.35)] backdrop-blur-xl ${isFullscreen ? "h-screen rounded-none" : "rounded-[28px]"}`}
+      className={cn(
+        "overflow-hidden border border-white/10 bg-card/70 shadow-2xl backdrop-blur-xl transition-all duration-500",
+        isFullscreen ? "h-screen rounded-none" : "rounded-[28px]"
+      )}
     >
       <div className="flex flex-col gap-3 border-b border-white/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.28em] text-muted-foreground">Code Workspace</div>
-          <div className="mt-1 text-sm text-foreground">Preview is shown by default</div>
+        <div className="flex items-center gap-4">
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Workspace</div>
+            <div className="mt-0.5 text-xs font-semibold text-foreground">Interactive Preview</div>
+          </div>
+          
+          {viewMode === "preview" && (
+            <div className="hidden items-center gap-1 rounded-lg border border-white/5 bg-white/5 p-1 sm:flex">
+              <button
+                onClick={() => setDeviceMode("desktop")}
+                className={cn(
+                  "rounded-md p-1.5 transition-all",
+                  deviceMode === "desktop" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                )}
+                title="Desktop View"
+              >
+                <Monitor size={14} />
+              </button>
+              <button
+                onClick={() => setDeviceMode("mobile")}
+                className={cn(
+                  "rounded-md p-1.5 transition-all",
+                  deviceMode === "mobile" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                )}
+                title="Mobile View"
+              >
+                <Smartphone size={14} />
+              </button>
+            </div>
+          )}
         </div>
+
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setViewMode("preview")}
-            aria-label="Preview"
-            title="Preview"
-            className={`inline-flex h-9 min-w-11 items-center justify-center rounded-xl px-3 text-xs ${viewMode === "preview" ? "bg-primary text-primary-foreground" : "border border-white/10 bg-white/5 text-muted-foreground"}`}
-          >
-            <Eye size={14} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode("code")}
-            aria-label="Code"
-            title="Code"
-            className={`inline-flex h-9 min-w-11 items-center justify-center rounded-xl px-3 text-xs ${viewMode === "code" ? "bg-primary text-primary-foreground" : "border border-white/10 bg-white/5 text-muted-foreground"}`}
-          >
-            <Code2 size={14} />
-          </button>
-          <button
-            type="button"
-            onClick={handleFullscreenToggle}
-            disabled={viewMode !== "preview"}
-            aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-            title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-            className="inline-flex h-9 min-w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 text-xs text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isFullscreen ? <Shrink size={14} /> : <Expand size={14} />}
-          </button>
-          <button
-            type="button"
-            onClick={handleCopy}
-            aria-label="Copy"
-            title="Copy"
-            className="inline-flex h-9 min-w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 text-muted-foreground"
-          >
-            {copied ? <Check size={14} /> : <Copy size={14} />}
-          </button>
-          <button
-            type="button"
-            onClick={handleDownload}
-            aria-label="Download website"
-            title="Download website"
-            className="inline-flex h-9 min-w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 text-muted-foreground"
-          >
-            <Download size={14} />
-          </button>
+          <div className="mr-2 flex items-center gap-1.5 rounded-xl border border-white/5 bg-white/5 p-1">
+            <button
+              onClick={() => setViewMode("preview")}
+              className={cn(
+                "inline-flex h-8 items-center gap-2 rounded-lg px-3 text-[11px] font-bold transition-all",
+                viewMode === "preview" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Eye size={12} />
+              Preview
+            </button>
+            <button
+              onClick={() => setViewMode("code")}
+              className={cn(
+                "inline-flex h-8 items-center gap-2 rounded-lg px-3 text-[11px] font-bold transition-all",
+                viewMode === "code" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Code2 size={12} />
+              Code
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleFullscreenToggle}
+              disabled={viewMode !== "preview"}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-white/5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+              title="Fullscreen"
+            >
+              {isFullscreen ? <Shrink size={14} /> : <Expand size={14} />}
+            </button>
+            <button
+              onClick={handleCopy}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-white/5 text-muted-foreground hover:text-foreground"
+              title="Copy Code"
+            >
+              {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+            </button>
+            <button
+              onClick={handleDownload}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-white/5 text-muted-foreground hover:text-foreground"
+              title="Download"
+            >
+              <Download size={14} />
+            </button>
+          </div>
         </div>
       </div>
 
-      {viewMode === "preview" ? (
-        <iframe title="Preview" srcDoc={previewDocument} className={`w-full bg-white ${isFullscreen ? "h-[calc(100vh-89px)]" : "h-[420px]"}`} sandbox="allow-scripts" />
-      ) : (
-        <div>
-          <div className="flex flex-wrap gap-2 border-b border-white/10 px-4 py-3">
-            {availableTabs.map((tab) => (
-              <button key={tab} type="button" onClick={() => setActiveTab(tab)} className={`rounded-full px-3 py-2 text-xs ${resolvedActiveTab === tab ? "bg-primary text-primary-foreground" : "border border-white/10 bg-white/5 text-muted-foreground"}`}>
-                {tab}
-              </button>
-            ))}
+      <div className={cn(
+        "relative w-full overflow-hidden bg-[#fafafa]",
+        isFullscreen ? "h-[calc(100vh-89px)]" : "h-[480px]"
+      )}>
+        {viewMode === "preview" ? (
+          <div className="flex h-full w-full items-start justify-center overflow-auto p-3 sm:p-4">
+            <div
+              className={cn(
+                "h-full overflow-hidden bg-white transition-all duration-500 ease-in-out",
+                previewFrameClass
+              )}
+            >
+              <iframe
+                title="Preview"
+                srcDoc={previewDocument}
+                className="h-full w-full bg-white"
+                sandbox="allow-scripts"
+              />
+            </div>
           </div>
-          <pre className={`overflow-auto p-5 text-[13px] leading-7 text-code-foreground ${isFullscreen ? "max-h-[calc(100vh-141px)]" : "max-h-[420px]"}`}>
-            <code>{highlightCode(getCode(resolvedActiveTab), resolvedActiveTab)}</code>
-          </pre>
-        </div>
-      )}
+        ) : (
+          <div className="h-full flex flex-col bg-[#0d1117]">
+            <div className="flex flex-wrap gap-2 border-b border-white/5 px-4 py-3">
+              {availableTabs.map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 text-[11px] font-bold transition-all",
+                    resolvedActiveTab === tab ? "bg-white/10 text-white shadow-sm" : "text-white/40 hover:text-white/60"
+                  )}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+            <pre className="flex-1 overflow-auto p-6 font-mono text-[13px] leading-relaxed text-white/90 scrollbar-thin">
+              <code>{highlightCode(getCode(resolvedActiveTab), resolvedActiveTab)}</code>
+            </pre>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

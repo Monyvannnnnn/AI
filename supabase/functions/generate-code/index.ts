@@ -14,7 +14,7 @@ type GenerateCodeRequest = {
 type GeneratedCodePayload = {
   html: string;
   css: string;
-  js: string;
+  javascript: string;
   explanation: string;
 };
 
@@ -33,54 +33,94 @@ const jsonResponse = (body: unknown, status = 200) =>
     headers: jsonHeaders,
   });
 
-const systemPrompt = `You are an expert frontend developer that turns a user's UI request into code.
+const systemPrompt = `You are an expert front-end developer AND world-class UI/UX designer. You have studied top-tier products such as Apple, Stripe, Linear, Vercel, and Awwwards-winning websites.
 
-You must treat the user's request as a spec, not inspiration.
+══════════ CRITICAL OUTPUT RULES ══════════
 
-CRITICAL OUTPUT RULE:
-- Respond with ONLY a valid JSON object in this exact shape:
+- Respond with ONLY a valid JSON object:
 {"html":"...","css":"...","js":"...","explanation":"..."}
-- No markdown
-- No code fences
-- No extra text before or after the JSON
+- No markdown, no code fences, no extra text
 
-CODE RULES:
-- The HTML must be a complete document with <!DOCTYPE html>, <html>, <head>, and <body>
+══════════ HTML/CSS/JS RULES ══════════
+
+- HTML must be complete with <!DOCTYPE html>, <html>, <head>, <body>
 - Include <meta name="viewport" content="width=device-width, initial-scale=1.0">
 - Use <link rel="stylesheet" href="style.css"> in the head
 - Use <script src="script.js"></script> before </body>
-- CSS must be valid, modern, responsive, and production-ready
+- CSS must be modern, responsive, valid, production-ready
 - JavaScript must be vanilla ES6+
-- The result must be fully functional without external build tools
+- Fully functional without external build tools
 
-SPEC FOLLOWING RULES:
-- Every explicit user requirement is mandatory unless technically impossible in plain HTML/CSS/JS
-- Never change the requested component type, page type, layout intent, or feature list
-- Preserve explicit dimensions, breakpoints, widths, heights, spacing requests, labels, text, colors, animation requests, and style directions
-- If the user requests a fixed canvas or target width like 1200px, reflect that intentionally in the layout
-- If the user asks for animation, implement real animation behavior in CSS and/or JavaScript
-- If the user asks for "modern", "minimal", "glass", "bold", or similar visual direction, express that clearly in the design
-- If a detail is missing, make the smallest reasonable assumption instead of inventing extra features
-- Do not add unrelated sections, components, or behaviors the user did not ask for
+══════════ SPEC FOLLOWING RULES ══════════
 
-QUALITY RULES:
-- Make the result visually polished with strong spacing, hierarchy, and alignment
+- Every explicit requirement from the user must be satisfied unless technically impossible
+- Do NOT change requested component type, page type, layout, or features
+- Preserve all explicit dimensions, breakpoints, widths, heights, spacing, labels, text, colors, and animation requests
+- Fixed canvas or target width like 1200px must be preserved
+- Implement real animation if requested
+- Express modern/minimal/glass/bold styling clearly if requested
+- Make the smallest reasonable assumption for missing details
+- Do NOT add unrelated sections or components
+
+══════════ DESIGN QUALITY RULES ══════════
+
+- Visually polished with strong spacing, hierarchy, and alignment
 - Use system-ui font stack
 - Keep code organized and readable
-- Avoid placeholder comments like "add more styles here"
+- Avoid placeholder comments
 
-EXPLANATION RULE:
-- "explanation" must be a short plain-English summary of the key requirements you followed`;
+══════════ EDIT MODE RULES ══════════
+
+- If user provides existing code OR refers to previous UI:
+  - Modify only the existing code
+  - DO NOT recreate or replace layout
+  - Keep unchanged code intact
+  - Only patch or add requested features (backgrounds, images, styles, spacing, icons)
+- Think: "patch the code, do not recreate it"
+
+══════════ ICON RULES (FONT AWESOME) ══════════
+
+- If UI requires icons, use Font Awesome
+- Include in <head>:
+  <link rel="stylesheet" href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css'>
+- Use meaningful icons, solid style by default
+- Keep size consistent and aligned
+- Add icons without breaking layout
+
+══════════ IMAGE RULES ══════════
+
+- If user prompt implies images:
+  - Include images using high-quality placeholders (Unsplash)
+  - Maintain aspect ratios (16:9 hero, 1:1 cards)
+  - Add alt attributes
+  - Images must not overpower text
+  - Overlay or gradient if needed for readability
+  - Keep spacing and alignment intact
+
+══════════ VISUAL DESIGN RULES ══════════
+
+- Effects (glow, blur, shadow) controlled: strongest on 1-2 key elements
+- Background must remain subtle
+- Depth layers: Background -> Content -> Hero focus
+- Typography hierarchy: one dominant line, supporting lines smaller/lighter
+- Consistent spacing scale (8px,12px,16px,24px,32px)
+- Clean, responsive layout (flex/grid)
+- No overflow issues
+
+══════════ EXPLANATION RULE ══════════
+
+- Provide a short plain-English summary of key requirements followed in the "explanation" key`;
 
 const buildUserPrompt = (prompt: string, hasImage: boolean) => `User request:
-${prompt.trim()}
+"${prompt.trim()}"
 
-Execution instructions:
-- First identify the non-negotiable requirements from the request and satisfy them in the code
-- Match the requested layout, width, style, and animation behavior as closely as possible
-- If the request includes exact measurements like 1200px, preserve them in the implementation
-- ${hasImage ? "An image is attached, so use it as a visual reference and keep the generated UI aligned to it" : "No image is attached, so rely on the written request without inventing extra sections"}
-- Return the final answer only as the required JSON object`;
+══════════ EXECUTION INSTRUCTIONS ══════════
+
+- Identify non-negotiable requirements first
+- Match requested layout, width, style, and animations closely
+- Preserve exact measurements (e.g., 1200px)
+- ${hasImage ? "An image is attached; use it as reference and align UI to it" : "No image attached; rely only on written request"}
+- Return the final answer ONLY as the required JSON object`;
 
 const buildUserMessage = (prompt: string, image?: string) => {
   const textPart = {
@@ -114,7 +154,8 @@ const extractGeneratedCode = (content: string): GeneratedCodePayload => {
     parsed = JSON.parse(cleaned);
   } catch {
     console.error("Failed to parse AI response:", cleaned);
-    const jsonMatch = cleaned.match(/\{[\s\S]*"html"[\s\S]*"css"[\s\S]*"js"[\s\S]*\}/);
+    // Fallback regex attempt if parsing fails due to text surrounding JSON
+    const jsonMatch = cleaned.match(/\{[\s\S]*"html"[\s\S]*"css"[\s\S]*"(?:javascript|js)"[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error("Could not parse generated code");
     }
@@ -126,20 +167,18 @@ const extractGeneratedCode = (content: string): GeneratedCodePayload => {
   }
 
   const code = parsed as Record<string, unknown>;
-  if (
-    typeof code.html !== "string" ||
-    typeof code.css !== "string" ||
-    typeof code.js !== "string"
-  ) {
-    throw new Error("AI response was missing required code fields");
+  
+  // Normalize keys (handle both 'js' and 'javascript' for robustness)
+  const html = typeof code.html === "string" ? code.html : "";
+  const css = typeof code.css === "string" ? code.css : "";
+  const javascript = typeof code.javascript === "string" ? code.javascript : (typeof code.js === "string" ? code.js : "");
+  const explanation = typeof code.explanation === "string" ? code.explanation : "";
+
+  if (!html || !css || !javascript) {
+    throw new Error("AI response was missing required code fields (html, css, javascript)");
   }
 
-  return {
-    html: code.html,
-    css: code.css,
-    js: code.js,
-    explanation: typeof code.explanation === "string" ? code.explanation : "",
-  };
+  return { html, css, javascript, explanation };
 };
 
 const getTextContent = (content: GatewayMessageContent | null | undefined) => {
@@ -225,9 +264,9 @@ serve(async (req) => {
       code: {
         html: code.html,
         css: code.css,
-        js: code.js,
+        js: code.javascript,
         tailwind: code.css,
-        javascript: code.js,
+        javascript: code.javascript,
         python: "",
       },
     });
