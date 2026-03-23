@@ -275,23 +275,35 @@ const ChatSidebar = ({
       </AlertDialog>
 
       <AlertDialog open={isClearHistoryOpen} onOpenChange={setIsClearHistoryOpen}>
-        <AlertDialogContent className="max-w-[400px] border-white/5 bg-card/95 p-6 shadow-2xl backdrop-blur-3xl sm:rounded-[28px]">
-          <AlertDialogHeader className="gap-2">
-            <AlertDialogTitle className="text-xl font-bold text-destructive">Clear All History?</AlertDialogTitle>
-            <AlertDialogDescription className="text-[13px] leading-relaxed text-muted-foreground/70">
-              This will permanently delete <span className="font-bold text-foreground">{chats.length} conversations</span>. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+        <AlertDialogContent className="max-w-[420px] overflow-hidden border border-white/10 bg-card/90 p-0 shadow-[0_24px_80px_rgba(0,0,0,0.35)] backdrop-blur-3xl sm:rounded-[30px]">
+          <div className="border-b border-white/5 bg-[radial-gradient(circle_at_top,hsl(var(--destructive)/0.18),transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0))] px-6 pb-5 pt-6">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-destructive/20 bg-destructive/10 text-destructive shadow-[0_0_30px_rgba(220,38,38,0.15)]">
+              <Trash2 size={18} />
+            </div>
+            <AlertDialogHeader className="gap-2 text-left">
+              <AlertDialogTitle className="text-xl font-bold tracking-tight text-foreground">
+                Clear All History?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-[13px] leading-relaxed text-muted-foreground/75">
+                This will permanently delete <span className="font-bold text-foreground">{chats.length} conversations</span> and remove every generated result from this browser.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+          </div>
+          <div className="px-6 pb-6 pt-5">
+            <div className="rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3 text-[12px] font-medium text-muted-foreground/70">
+              This action cannot be undone.
+            </div>
+          </div>
+          <AlertDialogFooter className="border-t border-white/5 bg-white/[0.02] px-6 py-4 sm:justify-between">
             <AlertDialogCancel className="rounded-2xl border-white/10 bg-white/5 hover:bg-white/10">
-              Cancel
+              Keep History
             </AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={() => {
                 onClearHistory();
                 setIsClearHistoryOpen(false);
-              }} 
-              className="rounded-2xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              }}
+              className="rounded-2xl bg-destructive px-5 text-destructive-foreground shadow-[0_10px_30px_rgba(220,38,38,0.25)] hover:bg-destructive/90"
             >
               Clear Everything
             </AlertDialogAction>

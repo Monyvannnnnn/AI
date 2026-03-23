@@ -250,6 +250,7 @@ export const useChatApp = () => {
     addNewChat,
     selectChat,
     deleteChat,
+    clearHistory,
     renameChat,
     startEditing,
     cancelEditing,

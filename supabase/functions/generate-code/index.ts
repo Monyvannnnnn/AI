@@ -5,222 +5,69 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-type GenerateCodeRequest = {
-  prompt?: unknown;
-  model?: unknown;
-  image?: unknown;
-};
+const systemPrompt = `You are an expert frontend developer that turns a user's UI request into code.
 
-type GeneratedCodePayload = {
-  html: string;
-  css: string;
-  javascript: string;
-  explanation: string;
-};
+You must treat the user's request as a spec, not inspiration.
 
-type GatewayMessageContent =
-  | string
-  | Array<{
-      type?: string;
-      text?: string;
-    }>;
-
-const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
-
-const jsonResponse = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: jsonHeaders,
-  });
-
-const systemPrompt = `You are an expert front-end developer AND world-class UI/UX designer. You have studied top-tier products such as Apple, Stripe, Linear, Vercel, and Awwwards-winning websites.
-
-══════════ CRITICAL OUTPUT RULES ══════════
-
-- Respond with ONLY a valid JSON object:
+CRITICAL OUTPUT RULE:
+- Respond with ONLY a valid JSON object in this exact shape:
 {"html":"...","css":"...","js":"...","explanation":"..."}
-- No markdown, no code fences, no extra text
+- No markdown
+- No code fences
+- No extra text before or after the JSON
 
-══════════ HTML/CSS/JS RULES ══════════
-
-- HTML must be complete with <!DOCTYPE html>, <html>, <head>, <body>
+CODE RULES:
+- The HTML must be a complete document with <!DOCTYPE html>, <html>, <head>, and <body>
 - Include <meta name="viewport" content="width=device-width, initial-scale=1.0">
 - Use <link rel="stylesheet" href="style.css"> in the head
 - Use <script src="script.js"></script> before </body>
-- CSS must be modern, responsive, valid, production-ready
+- CSS must be valid, modern, responsive, and production-ready
 - JavaScript must be vanilla ES6+
-- Fully functional without external build tools
+- The result must be fully functional without external build tools
 
-══════════ SPEC FOLLOWING RULES ══════════
+SPEC FOLLOWING RULES:
+- Every explicit user requirement is mandatory unless technically impossible in plain HTML/CSS/JS
+- Never change the requested component type, page type, layout intent, or feature list
+- Preserve explicit dimensions, breakpoints, widths, heights, spacing requests, labels, text, colors, animation requests, and style directions
+- If the user requests a fixed canvas or target width like 1200px, reflect that intentionally in the layout
+- If the user asks for animation, implement real animation behavior in CSS and/or JavaScript
+- If the user asks for "modern", "minimal", "glass", "bold", or similar visual direction, express that clearly in the design
+- If a detail is missing, make the smallest reasonable assumption instead of inventing extra features
+- Do not add unrelated sections, components, or behaviors the user did not ask for
 
-- Every explicit requirement from the user must be satisfied unless technically impossible
-- Do NOT change requested component type, page type, layout, or features
-- Preserve all explicit dimensions, breakpoints, widths, heights, spacing, labels, text, colors, and animation requests
-- Fixed canvas or target width like 1200px must be preserved
-- Implement real animation if requested
-- Express modern/minimal/glass/bold styling clearly if requested
-- Make the smallest reasonable assumption for missing details
-- Do NOT add unrelated sections or components
+QU
 
-══════════ DESIGN QUALITY RULES ══════════
-
-- Visually polished with strong spacing, hierarchy, and alignment
+- Make the result visually polished with strong spacing, hierarchy, and alignment
 - Use system-ui font stack
 - Keep code organized and readable
-- Avoid placeholder comments
+- Avoid placeholder comments like "add more styles here"
 
-══════════ EDIT MODE RULES ══════════
-
-- If user provides existing code OR refers to previous UI:
-  - Modify only the existing code
-  - DO NOT recreate or replace layout
-  - Keep unchanged code intact
-  - Only patch or add requested features (backgrounds, images, styles, spacing, icons)
-- Think: "patch the code, do not recreate it"
-
-══════════ ICON RULES (FONT AWESOME) ══════════
-
-- If UI requires icons, use Font Awesome
-- Include in <head>:
-  <link rel="stylesheet" href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css'>
-- Use meaningful icons, solid style by default
-- Keep size consistent and aligned
-- Add icons without breaking layout
-
-══════════ IMAGE RULES ══════════
-
-- If user prompt implies images:
-  - Include images using high-quality placeholders (Unsplash)
-  - Maintain aspect ratios (16:9 hero, 1:1 cards)
-  - Add alt attributes
-  - Images must not overpower text
-  - Overlay or gradient if needed for readability
-  - Keep spacing and alignment intact
-
-══════════ VISUAL DESIGN RULES ══════════
-
-- Effects (glow, blur, shadow) controlled: strongest on 1–2 key elements
-- Background must remain subtle
-- Depth layers: Background → Content → Hero focus
-- Typography hierarchy: one dominant line, supporting lines smaller/lighter
-- Consistent spacing scale (8px,12px,16px,24px,32px)
-- Clean, responsive layout (flex/grid)
-- No overflow issues
-
-══════════ EXECUTION INSTRUCTIONS ══════════
-
-- Identify non-negotiable requirements first
-- Match requested layout, width, style, and animations closely
-- Preserve exact measurements (e.g., 1200px)
-- Follow the user request exactly and return the final answer ONLY as the required JSON object
-
-══════════ EXPLANATION RULE ══════════
-
-- Provide a short plain-English summary of key requirements followed in the "explanation" key`;
+EXPLANATION RULE:
+- "explanation" must be a short plain-English summary of the key requirements you followed`;
 
 const buildUserPrompt = (prompt: string, hasImage: boolean) => `User request:
-"${prompt.trim()}"
+${prompt.trim()}
 
-══════════ EXECUTION INSTRUCTIONS ══════════
+Execution instructions:
+- First identify the non-negotiable requirements from the request and satisfy them in the code
+- Match the requested layout, width, style, and animation behavior as closely as possible
+- If the request includes exact measurements like 1200px, preserve them in the implementation
+- ${hasImage ? "An image is attached, so use it as a visual reference and keep the generated UI aligned to it" : "No image is attached, so rely on the written request without inventing extra sections"}
+- Return the final answer only as the required JSON object`;
 
-- Identify non-negotiable requirements first
-- Match requested layout, width, style, and animations closely
-- Preserve exact measurements (e.g., 1200px)
-- ${hasImage ? "An image is attached; use it as reference and align UI to it" : "No image attached; rely only on written request"}
-- Return the final answer ONLY as the required JSON object`;
-
-const buildUserMessage = (prompt: string, image?: string) => {
-  const textPart = {
-    type: "text",
-    text: buildUserPrompt(prompt, Boolean(image)),
-  };
-
-  if (!image) {
-    return textPart.text;
-  }
-
-  return [
-    textPart,
-    {
-      type: "image_url",
-      image_url: {
-        url: image,
-      },
-    },
-  ];
-};
-
-const extractGeneratedCode = (content: string): GeneratedCodePayload => {
-  let cleaned = content.trim();
-  if (cleaned.startsWith("```")) {
-    cleaned = cleaned.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch {
-    console.error("Failed to parse AI response:", cleaned);
-    // Fallback regex attempt if parsing fails due to text surrounding JSON
-    const jsonMatch = cleaned.match(/\{[\s\S]*"html"[\s\S]*"css"[\s\S]*"(?:javascript|js)"[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error("Could not parse generated code");
-    }
-    parsed = JSON.parse(jsonMatch[0]);
-  }
-
-  if (!parsed || typeof parsed !== "object") {
-    throw new Error("AI response was not a JSON object");
-  }
-
-  const code = parsed as Record<string, unknown>;
-  
-  // Normalize keys (handle both 'js' and 'javascript' for robustness)
-  const html = typeof code.html === "string" ? code.html : "";
-  const css = typeof code.css === "string" ? code.css : "";
-  const javascript = typeof code.javascript === "string" ? code.javascript : (typeof code.js === "string" ? code.js : "");
-  const explanation = typeof code.explanation === "string" ? code.explanation : "";
-
-  if (!html || !css || !javascript) {
-    throw new Error("AI response was missing required code fields (html, css, javascript)");
-  }
-
-  return { html, css, javascript, explanation };
-};
-
-const getTextContent = (content: GatewayMessageContent | null | undefined) => {
-  if (typeof content === "string") {
-    return content;
-  }
-
-  if (Array.isArray(content)) {
-    return content
-      .filter((item) => item?.type === "text" && typeof item.text === "string")
-      .map((item) => item.text)
-      .join("\n")
-      .trim();
-  }
-
-  return "";
-};
-
-serve(async (req) => {
+serve(async (req: { method: string; json: () => PromiseLike<{ prompt: any; model: any; image: any; }> | { prompt: any; model: any; image: any; }; }) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
-  }
-
   try {
-    const body = (await req.json()) as GenerateCodeRequest;
-    const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
-    const model = typeof body.model === "string" && body.model.trim() ? body.model : "google/gemini-3-flash-preview";
-    const image = typeof body.image === "string" && body.image.trim() ? body.image : undefined;
+    const { prompt, model, image } = await req.json();
 
-    if (!prompt) {
-      return jsonResponse({ error: "Missing prompt" }, 400);
+    if (!prompt || typeof prompt !== "string") {
+      return new Response(JSON.stringify({ error: "Missing prompt" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -235,10 +82,10 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model,
+        model: model || "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: buildUserMessage(prompt, image) },
+          { role: "user", content: buildUserPrompt(prompt, Boolean(image)) },
         ],
         temperature: 0.2,
       }),
@@ -246,39 +93,71 @@ serve(async (req) => {
 
     if (!response.ok) {
       if (response.status === 429) {
-        return jsonResponse({ error: "Rate limit exceeded. Please try again in a moment." }, 429);
+        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
       if (response.status === 402) {
-        return jsonResponse({ error: "Usage limit reached. Please add credits to continue." }, 402);
+        return new Response(JSON.stringify({ error: "Usage limit reached. Please add credits to continue." }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
       const text = await response.text();
       console.error("AI gateway error:", response.status, text);
-      return jsonResponse({ error: "AI generation failed" }, 500);
+      return new Response(JSON.stringify({ error: "AI generation failed" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const data = await response.json();
-    const content = getTextContent(data?.choices?.[0]?.message?.content as GatewayMessageContent | undefined);
+    const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
       throw new Error("No content returned from AI");
     }
 
-    const code = extractGeneratedCode(content);
+    // Parse the JSON response - handle potential markdown code fences
+    let cleaned = content.trim();
+    if (cleaned.startsWith("```")) {
+      cleaned = cleaned.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
+    }
 
-    return jsonResponse({
-      explanation: code.explanation,
-      message: code.explanation || "Generated UI successfully.",
-      code: {
-        html: code.html,
-        css: code.css,
-        js: code.javascript,
-        tailwind: code.css,
-        javascript: code.javascript,
-        python: "",
-      },
+    let code;
+    try {
+      code = JSON.parse(cleaned);
+    } catch {
+      console.error("Failed to parse AI response:", cleaned);
+      // Try to extract JSON from the response
+      const jsonMatch = cleaned.match(/\{[\s\S]*"html"[\s\S]*"css"[\s\S]*"js"[\s\S]*\}/);
+      if (jsonMatch) {
+        code = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error("Could not parse generated code");
+      }
+    }
+
+    if (
+      !code ||
+      typeof code !== "object" ||
+      typeof code.html !== "string" ||
+      typeof code.css !== "string" ||
+      typeof code.js !== "string"
+    ) {
+      throw new Error("AI response was missing required code fields");
+    }
+
+    return new Response(JSON.stringify({ code }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("generate-code error:", e);
-    return jsonResponse({ error: e instanceof Error ? e.message : "Unknown error" }, 500);
+    return new Response(
+      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });

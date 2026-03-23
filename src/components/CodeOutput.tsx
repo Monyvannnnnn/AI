@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Code2, Copy, Download, Eye, Expand, Shrink, Monitor, Smartphone } from "lucide-react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { Check, Code2, Copy, Download, Eye, ExternalLink, Monitor, Smartphone } from "lucide-react";
 import type { GeneratedCode } from "@/types/chat";
 import { buildStandaloneHtml, looksLikeCss } from "@/lib/code-output";
 import { cn } from "@/lib/utils";
@@ -18,14 +18,14 @@ const EMPTY_CODE: GeneratedCode = {
   python: "",
 };
 const tokenColors = {
-  comment: "text-muted-foreground/70",
+  comment: "text-slate-500",
   string: "text-amber-400",
   keyword: "text-sky-400",
   number: "text-fuchsia-400",
   tag: "text-cyan-400",
   attr: "text-emerald-400",
-  punctuation: "text-foreground/70",
-  plain: "text-foreground",
+  punctuation: "text-slate-300",
+  plain: "text-slate-100",
 } as const;
 
 interface CodeOutputProps {
@@ -147,12 +147,10 @@ const highlightCode = (code: string, tab: string) => {
 };
 
 const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
-  const containerRef = useRef<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState<string>("HTML");
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<"code" | "preview">("preview");
   const [deviceMode, setDeviceMode] = useState<"desktop" | "mobile">("desktop");
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [typedCode, setTypedCode] = useState<GeneratedCode>(EMPTY_CODE);
 
   const normalizeCode = (code: string, tab: string) => {
@@ -181,36 +179,7 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
       setTypedCode(EMPTY_CODE);
       return;
     }
-    setTypedCode(EMPTY_CODE);
-    let cancelled = false;
-    let timeoutId: number | null = null;
-    let index = 0;
-    const maxLength = Math.max(
-      generatedCode.html.length,
-      generatedCode.tailwind.length,
-      generatedCode.javascript.length,
-      generatedCode.python.length,
-    );
-
-    const tick = () => {
-      if (cancelled) return;
-      index += 12;
-      setTypedCode({
-        html: generatedCode.html.slice(0, index),
-        tailwind: generatedCode.tailwind.slice(0, index),
-        javascript: generatedCode.javascript.slice(0, index),
-        python: generatedCode.python.slice(0, index),
-      });
-      if (index < maxLength) {
-        timeoutId = window.setTimeout(tick, 12);
-      }
-    };
-
-    timeoutId = window.setTimeout(tick, 12);
-    return () => {
-      cancelled = true;
-      if (timeoutId !== null) window.clearTimeout(timeoutId);
-    };
+    setTypedCode(generatedCode);
   }, [generatedCode]);
 
   useEffect(() => {
@@ -219,30 +188,14 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
     }
   }, [activeTab, availableTabs]);
 
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(document.fullscreenElement === containerRef.current);
-    };
-
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (viewMode !== "preview" && document.fullscreenElement === containerRef.current) {
-      void document.exitFullscreen();
-    }
-  }, [viewMode]);
-
   if (!visible || !generatedCode) return null;
 
   const previewDocument = buildStandaloneHtml(generatedCode);
   const previewFrameClass =
     deviceMode === "mobile"
       ? "w-full max-w-[375px] max-sm:max-w-[calc(100vw-24px)] border-x border-black/5 shadow-2xl"
-      : "w-full max-w-[1280px] min-w-[320px] border border-black/5 shadow-[0_24px_80px_rgba(15,23,42,0.12)]";
+      : "h-full w-full min-w-0 border border-black/5 shadow-[0_24px_80px_rgba(15,23,42,0.12)]";
+  const codeFrameClass = "w-full max-w-[375px] max-sm:max-w-[calc(100vw-24px)] border-x border-black/5 shadow-2xl";
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(getCode(resolvedActiveTab));
@@ -260,26 +213,15 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
     URL.revokeObjectURL(url);
   };
 
-  const handleFullscreenToggle = async () => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    if (document.fullscreenElement === container) {
-      await document.exitFullscreen();
-      return;
-    }
-
-    await container.requestFullscreen();
+  const handleVisit = () => {
+    const blob = new Blob([buildStandaloneHtml(generatedCode)], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   return (
-    <div
-      ref={containerRef}
-      className={cn(
-        "w-full overflow-hidden border border-white/10 bg-card/70 shadow-2xl backdrop-blur-xl transition-all duration-500",
-        isFullscreen ? "h-screen rounded-none" : "rounded-[20px] sm:rounded-[28px]"
-      )}
-    >
+    <div className="w-full overflow-hidden rounded-[20px] border border-white/10 bg-card/70 shadow-2xl backdrop-blur-xl transition-[background-color,border-color,box-shadow] duration-300 sm:rounded-[28px]">
       <div className="flex flex-col gap-3 border-b border-white/10 px-3 py-3 sm:px-4 sm:py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <div>
@@ -287,30 +229,28 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
             <div className="mt-0.5 text-xs font-semibold text-foreground">Interactive Preview</div>
           </div>
           
-          {viewMode === "preview" && (
-            <div className="hidden items-center gap-1 rounded-lg border border-white/5 bg-white/5 p-1 sm:flex">
-              <button
-                onClick={() => setDeviceMode("desktop")}
-                className={cn(
-                  "rounded-md p-1.5 transition-all",
-                  deviceMode === "desktop" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                )}
-                title="Desktop View"
-              >
-                <Monitor size={14} />
-              </button>
-              <button
-                onClick={() => setDeviceMode("mobile")}
-                className={cn(
-                  "rounded-md p-1.5 transition-all",
-                  deviceMode === "mobile" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                )}
-                title="Mobile View"
-              >
-                <Smartphone size={14} />
-              </button>
-            </div>
-          )}
+          <div className="hidden items-center gap-1 rounded-lg border border-white/5 bg-white/5 p-1 sm:flex">
+            <button
+              onClick={() => setDeviceMode("desktop")}
+              className={cn(
+                "rounded-md p-1.5 transition-all",
+                deviceMode === "desktop" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+              title="Desktop View"
+            >
+              <Monitor size={14} />
+            </button>
+            <button
+              onClick={() => setDeviceMode("mobile")}
+              className={cn(
+                "rounded-md p-1.5 transition-all",
+                deviceMode === "mobile" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+              title="Mobile View"
+            >
+              <Smartphone size={14} />
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -339,12 +279,12 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
 
           <div className="flex items-center gap-1">
             <button
-              onClick={handleFullscreenToggle}
-              disabled={viewMode !== "preview"}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/5 bg-white/5 text-muted-foreground hover:text-foreground disabled:opacity-30 sm:h-9 sm:w-9"
-              title="Fullscreen"
+              onClick={handleVisit}
+              className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-white/5 bg-white/5 px-2.5 text-[11px] font-bold text-muted-foreground hover:text-foreground sm:h-9 sm:px-3"
+              title="Visit Website"
             >
-              {isFullscreen ? <Shrink size={14} /> : <Expand size={14} />}
+              <ExternalLink size={14} />
+              Visit
             </button>
             <button
               onClick={handleCopy}
@@ -364,15 +304,12 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
         </div>
       </div>
 
-      <div className={cn(
-        "relative w-full overflow-hidden bg-[#fafafa]",
-        isFullscreen ? "h-[calc(100vh-89px)]" : "h-[420px] sm:h-[480px]"
-      )}>
+      <div className="relative h-[clamp(360px,58vw,720px)] w-full overflow-hidden">
         {viewMode === "preview" ? (
-          <div className="flex h-full w-full items-start justify-center overflow-x-hidden overflow-y-auto p-3 sm:p-4">
+          <div className="h-full w-full overflow-x-hidden overflow-y-auto p-3 sm:p-4">
             <div
               className={cn(
-                "h-full overflow-hidden bg-white transition-all duration-500 ease-in-out",
+                "mx-auto h-full overflow-hidden bg-white transition-[box-shadow] duration-300 ease-out",
                 previewFrameClass
               )}
             >
@@ -385,25 +322,32 @@ const CodeOutput = ({ visible, generatedCode }: CodeOutputProps) => {
             </div>
           </div>
         ) : (
-          <div className="h-full flex flex-col bg-[#0d1117]">
-            <div className="flex flex-wrap gap-2 border-b border-white/5 px-3 py-3 sm:px-4">
-              {availableTabs.map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab)}
-                  className={cn(
-                    "rounded-full px-2.5 py-1.5 text-[10px] font-bold transition-all sm:px-3 sm:text-[11px]",
-                    resolvedActiveTab === tab ? "bg-white/10 text-white shadow-sm" : "text-white/40 hover:text-white/60"
-                  )}
-                >
-                  {tab}
-                </button>
-              ))}
+          <div className="h-full w-full overflow-x-hidden overflow-y-auto p-3 sm:p-4">
+            <div
+              className={cn(
+                "mx-auto flex h-full min-w-0 flex-col overflow-hidden border border-black/5 bg-[#0d1117] transition-[box-shadow] duration-300 ease-out shadow-[0_24px_80px_rgba(2,6,23,0.35)]",
+                codeFrameClass
+              )}
+            >
+              <div className="flex flex-wrap gap-2 border-b border-white/5 px-4 py-3.5 sm:px-5">
+                {availableTabs.map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setActiveTab(tab)}
+                    className={cn(
+                      "min-w-[96px] rounded-full px-3 py-2 text-center text-[11px] font-bold transition-all sm:min-w-[112px] sm:px-4 sm:text-[12px]",
+                      resolvedActiveTab === tab ? "bg-white/10 text-white shadow-sm" : "text-white/40 hover:text-white/60"
+                    )}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+              <pre className="flex-1 overflow-auto p-5 text-[14px] leading-7 text-white/90 scrollbar-thin sm:p-6 sm:text-[15px] sm:leading-8">
+                <code>{highlightCode(getCode(resolvedActiveTab), resolvedActiveTab)}</code>
+              </pre>
             </div>
-            <pre className="flex-1 overflow-auto p-3 text-[12px] leading-relaxed text-white/90 scrollbar-thin sm:p-6 sm:text-[13px]">
-              <code>{highlightCode(getCode(resolvedActiveTab), resolvedActiveTab)}</code>
-            </pre>
           </div>
         )}
       </div>

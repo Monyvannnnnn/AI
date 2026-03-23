@@ -23,6 +23,19 @@ const StarBackground = () => {
 
     const isCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
     const viewport = window.visualViewport;
+    const density = isCoarsePointer ? 8000 : 5200;
+
+    const createStars = (width: number, height: number) => {
+      const count = Math.max(24, Math.floor((width * height) / density));
+      starsRef.current = Array.from({ length: count }, () => ({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        radius: Math.random() * 1.8 + 0.6,
+        opacity: Math.random() * 0.55 + 0.3,
+        speed: Math.random() * 0.45 + 0.12,
+        twinkleOffset: Math.random() * Math.PI * 2,
+      }));
+    };
 
     const resize = () => {
       const width = viewport?.width ?? window.innerWidth;
@@ -34,6 +47,7 @@ const StarBackground = () => {
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      createStars(width, height);
     };
     resize();
     window.addEventListener("resize", resize);
@@ -41,19 +55,6 @@ const StarBackground = () => {
 
     const getLogicalWidth = () => canvas.width / (Math.min(window.devicePixelRatio || 1, 2));
     const getLogicalHeight = () => canvas.height / (Math.min(window.devicePixelRatio || 1, 2));
-
-    const logicalWidth = getLogicalWidth();
-    const logicalHeight = getLogicalHeight();
-    const density = isCoarsePointer ? 8000 : 5200;
-    const count = Math.floor((logicalWidth * logicalHeight) / density);
-    starsRef.current = Array.from({ length: count }, () => ({
-      x: Math.random() * logicalWidth,
-      y: Math.random() * logicalHeight,
-      radius: Math.random() * 1.8 + 0.6,
-      opacity: Math.random() * 0.55 + 0.3,
-      speed: Math.random() * 0.45 + 0.12,
-      twinkleOffset: Math.random() * Math.PI * 2,
-    }));
 
     const handleMouseMove = (event: MouseEvent) => {
       const dx = event.clientX - mouseRef.current.x;

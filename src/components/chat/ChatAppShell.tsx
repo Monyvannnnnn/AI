@@ -46,14 +46,22 @@ const ChatAppShell = ({ chat }: ChatAppShellProps) => {
       {/* Desktop Sidebar */}
       <motion.aside
         initial={false}
-        animate={{ 
+        animate={{
           width: desktopSidebarOpen ? 260 : 0,
-          opacity: desktopSidebarOpen ? 1 : 0
+          opacity: desktopSidebarOpen ? 1 : 0,
         }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="relative z-30 hidden h-full shrink-0 border-r border-white/5 bg-card/20 backdrop-blur-3xl lg:block"
+        className="relative z-30 hidden h-full shrink-0 overflow-hidden border-r border-white/5 bg-card/20 backdrop-blur-3xl lg:block"
       >
-        <div className="flex h-full w-[260px] flex-col overflow-hidden">
+        <motion.div
+          initial={false}
+          animate={{
+            x: desktopSidebarOpen ? 0 : -260,
+            opacity: desktopSidebarOpen ? 1 : 0.6,
+          }}
+          transition={{ type: "spring", stiffness: 320, damping: 32 }}
+          className="flex h-full w-[260px] flex-col overflow-hidden"
+        >
           <div className="flex items-center justify-between border-b border-white/5 p-5">
             <BrandLogo showIcon={false} />
             <motion.button
@@ -87,7 +95,7 @@ const ChatAppShell = ({ chat }: ChatAppShellProps) => {
               <ThemeToggle />
             </div>
           </div>
-        </div>
+        </motion.div>
       </motion.aside>
 
       {/* Main Content Area */}
